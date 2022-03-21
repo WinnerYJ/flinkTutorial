@@ -5,3 +5,4 @@ Bob, ./cart, 4000
 Bob, ./home, 4000
 Mary, ./home, 6000
 Bob, ./cart, 7000
+Bob, ./home, 7100
