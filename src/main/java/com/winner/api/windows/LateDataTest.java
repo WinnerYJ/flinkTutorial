@@ -10,7 +10,7 @@ import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import java.time.Duration;
 
 public class LateDataTest {
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Exception{
         StreamExecutionEnvironment executionEnvironment = StreamExecutionEnvironment.getExecutionEnvironment();
         executionEnvironment.setParallelism(1);
         executionEnvironment.getConfig().setAutoWatermarkInterval(100);
