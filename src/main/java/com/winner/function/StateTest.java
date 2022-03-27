@@ -8,6 +8,7 @@ import org.apache.flink.api.common.functions.AggregateFunction;
 import org.apache.flink.api.common.functions.ReduceFunction;
 import org.apache.flink.api.common.functions.RichFlatMapFunction;
 import org.apache.flink.api.common.state.*;
+import org.apache.flink.api.common.time.Time;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
@@ -22,12 +23,7 @@ public class StateTest {
 
         SingleOutputStreamOperator<Event> stream = executionEnvironment.addSource(new ClickSource())
                 .assignTimestampsAndWatermarks(WatermarkStrategy.<Event>forBoundedOutOfOrderness(Duration.ZERO)
-                        .withTimestampAssigner((new SerializableTimestampAssigner<Event>() {
-                            @Override
-                            public long extractTimestamp(Event event, long l) {
-                                return event.timestamp;
-                            }
-                        }))
+                .withTimestampAssigner(((SerializableTimestampAssigner<Event>) (event, l) -> event.timestamp))
                 );
 
         stream.keyBy(data -> data.user)
@@ -44,11 +40,15 @@ public class StateTest {
         ReducingState<Event> myReducingState;
         AggregatingState<Event, String> myAggregatingState;
 
+
+
         Long count = 0L;
 
         @Override
-        public void open(Configuration parameters) throws Exception {
-            myValueState = getRuntimeContext().getState(new ValueStateDescriptor<Event>("my-state", Event.class));
+        public void open(Configuration parameters) {
+            ValueStateDescriptor<Event> valueStateDescriptor = new ValueStateDescriptor<Event>("my-state", Event.class);
+
+            myValueState = getRuntimeContext().getState(valueStateDescriptor);
             myListState = getRuntimeContext().getListState(new ListStateDescriptor<Event>("my-list-state", Event.class));
             myMapState = getRuntimeContext().getMapState(new MapStateDescriptor<String, Long>("my-map-state", String.class, Long.class));
             myReducingState = getRuntimeContext().getReducingState(new ReducingStateDescriptor<Event>("my-reducing-state", new ReduceFunction<Event>() {
@@ -82,6 +82,13 @@ public class StateTest {
                     return aLong + acc1;
                 }
             }, Long.class));
+
+            StateTtlConfig ttlConfig = StateTtlConfig.newBuilder(Time.hours(1))
+                    .setUpdateType(StateTtlConfig.UpdateType.OnReadAndWrite)
+                    .setStateVisibility(StateTtlConfig.StateVisibility.ReturnExpiredIfNotCleanedUp)
+                    .build();
+
+            valueStateDescriptor.enableTimeToLive(ttlConfig);
         }
 
         @Override
